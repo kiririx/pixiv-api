@@ -1,5 +1,8 @@
 # pixiv-api
 
+## 进度
+开发中。。。
+
 ## 参考
 本项目的实现细节参考：https://github.com/upbit/pixivpy
 

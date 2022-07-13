@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"github.com/kiririx/krutils/algo_util"
 	"github.com/kiririx/krutils/http_util"
-	"github.com/kiririx/krutils/json_util"
+	"github.com/kiririx/krutils/logx"
+	"github.com/kiririx/krutils/str_util"
 	"io"
 	"os"
 	"path"
@@ -20,31 +21,49 @@ var (
 	clientSecret = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj"
 	hashSecret   = "28c1fdd170a5204386cb1313c7077b34f83e4aaf4aa829ce78c231e05b0bae2c"
 	apiHosts     = "https://app-api.pixiv.net"
-	refreshToken = "vE94AY1QvM8BGcJuA6o1lPFBpfwv8YrDeuaH1AQWZRQ"
-	AccessToken  = ""
-	proxyUrl     = "http://127.0.0.1:7890"
-	ExpireTime   int64
 )
 
+// PixivClient pixiv客户端
+//
+// ProxyURL: 代理服务器地址
+//
+// APITimeout: API超时时间
+//
+// RefreshToken: 刷新令牌
+//
+// accessToken: 访问令牌
+//
+// expireTime: 访问令牌过期时间
+//
+// Login: 如果为false，则以游客身份访问，如果为true，会获取accessToken，以用户身份访问
 type PixivClient struct {
-	Headers map[string]string
+	ProxyURL        string
+	RefreshToken    string
+	accessToken     string
+	expireTime      int64
+	DownloadTimeout time.Duration
+	APITimeout      time.Duration
+	Login           bool
 }
 
-func GetHeaders() map[string]string {
+func (p *PixivClient) getHeaders() (map[string]string, error) {
 	localTime := time.Now().Format(time.RFC3339)
 	px := make(map[string]string)
 	px["Accept-Language"] = "en-us"
 	px["X-Client-Time"] = localTime
 	px["X-Client-Hash"] = genClientHash(localTime)
 	px["User-Agent"] = "PixivAndroidApp/5.0.115 (Android 6.0)"
-	if AccessToken == "" {
-		Auth()
+	if p.Login {
+		err := p.Auth()
+		if err != nil {
+			return nil, err
+		}
+		px["Authorization"] = "Bearer " + p.accessToken
 	}
-	px["Authorization"] = "Bearer " + AccessToken
-	return px
+	return px, nil
 }
 
-func DownloadImg(url string) (string, error) {
+func (p *PixivClient) DownloadImg(url string) (string, error) {
 	ext, _ := GetFileExt(url)
 	fileName := algo_util.MD5(url) + "." + ext
 	_, err := os.Stat("./photo/" + fileName)
@@ -52,9 +71,9 @@ func DownloadImg(url string) (string, error) {
 		return fileName, nil
 	}
 	referer := "https://app-api.pixiv.net/"
-	resp, err := http_util.Client(time.Second * 20).Proxy(proxyUrl).Headers(map[string]string{
+	resp, err := http_util.Client().Timeout(p.APITimeout).Proxy(p.ProxyURL).Headers(map[string]string{
 		"Referer": referer,
-	}).Get(url)
+	}).Get(url, nil)
 	if err != nil {
 		fmt.Println(err.Error())
 		return "", err
@@ -83,32 +102,33 @@ func GetFileExt(fileAddr string) (string, error) {
 	}
 	return "", errors.New("获取文件扩展名失败")
 }
-func Auth() {
-	if AccessToken != "" && time.Now().Unix() < ExpireTime {
-		return
+
+func (p *PixivClient) Auth() error {
+	if p.accessToken != "" && time.Now().Unix() < p.expireTime {
+		return nil
 	}
-	localTime := time.Now().Format(time.RFC3339)
-	px := PixivClient{}
-	px.Headers = make(map[string]string)
-	px.Headers["Accept-Language"] = "en-us"
-	px.Headers["X-Client-Time"] = localTime
-	px.Headers["X-Client-Hash"] = genClientHash(localTime)
-	px.Headers["User-Agent"] = "PixivAndroidApp/5.0.115 (Android 6.0)"
-	json, err := http_util.Client(time.Second*10).
-		Proxy("http://127.0.0.1:7890").
-		PostFormGetJSON("https://oauth.secure.pixiv.net"+"/auth/token", map[string]string{
+	json, err := http_util.Client().
+		Timeout(p.APITimeout).
+		Proxy(p.ProxyURL).
+		PostFormGetJSON("https://oauth.secure.pixiv.net/auth/token", map[string]string{
 			"client_id":      clientId,
 			"client_secret":  clientSecret,
 			"grant_type":     "refresh_token",
 			"get_secure_url": "1",
-			"refresh_token":  refreshToken,
+			"refresh_token":  p.RefreshToken,
 		})
 	if err != nil {
-		fmt.Println(err.Error())
-		return
+		logx.ERR(err)
+		return err
 	}
-	AccessToken = json["access_token"].(string)
-	ExpireTime = time.Now().Unix() + int64(json["expires_in"].(float64))
+	accessToken := json["access_token"].(string)
+	expireTime := time.Now().Unix() + int64(json["expires_in"].(float64))
+	if accessToken == "" || expireTime == 0 {
+		return errors.New("accessToken or expireTime is empty, {accessToken:" + accessToken + ", expireTime:" + fmt.Sprintf("%d", expireTime) + "}")
+	}
+	p.accessToken = accessToken
+	p.expireTime = expireTime
+	return nil
 }
 
 func genClientHash(clientTime string) string {
@@ -118,22 +138,25 @@ func genClientHash(clientTime string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-func Rank() []string {
+func (p *PixivClient) Rank() ([]string, error) {
 	host := "https://app-api.pixiv.net"
 	url := host + "/v1/illust/ranking"
 	mode := "day_male_r18"
 	filter := "for_ios"
-	json, err := http_util.Client(time.Second*3).Proxy(proxyUrl).Headers(GetHeaders()).GetJSON(url, map[string]string{
+	headers, err := p.getHeaders()
+	if err != nil {
+		return nil, err
+	}
+	json, err := http_util.Client().Timeout(p.APITimeout).Proxy(p.ProxyURL).Headers(headers).GetJSON(url, map[string]string{
 		"mode":   mode,
 		"filter": filter,
 	})
 	if err != nil {
 		fmt.Println(err.Error())
-		return nil
+		return nil, err
 	}
 	photos := make([]string, 0)
-	m, err := json_util.JSON2Map(json)
-	illusts := m["illusts"].([]interface{})
+	illusts := json["illusts"].([]interface{})
 	for _, illust := range illusts {
 		image := illust.(map[string]interface{})["image_urls"].(map[string]interface{})
 		if image["large"] != "" {
@@ -144,45 +167,38 @@ func Rank() []string {
 			photos = append(photos, image["square_medium"].(string))
 		}
 	}
-	return photos
+	return photos, nil
 }
 
-func Recommend() (map[string]interface{}, error) {
+func (p *PixivClient) Recommend() (map[string]interface{}, error) {
 	req := apiHosts + "/v1/illust/recommended"
-	headers := GetHeaders()
+	headers, err := p.getHeaders()
 	headers[`include_ranking_label`] = "true"
-	json, err := http_util.Client(time.Second*3).Proxy(proxyUrl).Headers(headers).GetJSON(req, map[string]string{})
+	jsonMap, err := http_util.Client().Timeout(p.APITimeout).Proxy(p.ProxyURL).Headers(headers).GetJSON(req, map[string]string{})
 	if err != nil {
 		fmt.Println(err.Error())
 		return nil, err
 	}
-	j, err := json_util.JSON2Map(json)
-	if err != nil {
-		fmt.Println(err.Error())
-		return nil, err
-	}
-	return j, nil
+	return jsonMap, nil
 }
 
-func Search(param SearchParam) (map[string]interface{}, error) {
-	time.Sleep(time.Second * 1)
-
+// SearchIllust 搜索插画
+func (p *PixivClient) SearchIllust(param SearchParam) (map[string]any, error) {
 	url := apiHosts + "/v1/search/illust"
-	headers := GetHeaders()
-	json, err := http_util.Client(time.Second*10).Proxy(proxyUrl).Headers(headers).GetJSON(url, map[string]string{
+	headers, err := p.getHeaders()
+	if err != nil {
+		return nil, err
+	}
+	json, err := http_util.Client().Timeout(p.APITimeout).Proxy(p.ProxyURL).Headers(headers).GetJSON(url, map[string]string{
 		"word":          param.Word,
-		"search_target": param.SearchTarget,
-		"sort":          "popular_desc",
+		"search_target": string(param.SearchTarget),
+		"sort":          string(param.Sort),
 		"filter":        "for_ios",
+		"offset":        str_util.ToStr(param.Offset),
 	})
 	if err != nil {
 		fmt.Println(err.Error())
 		return nil, err
 	}
-	j, err := json_util.JSON2Map(json)
-	if err != nil {
-		fmt.Println(err.Error())
-		return nil, err
-	}
-	return j, nil
+	return json, nil
 }
