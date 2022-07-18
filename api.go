@@ -138,7 +138,8 @@ func genClientHash(clientTime string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-func (p *PixivClient) Rank() ([]string, error) {
+// IllustsRank 插画排行
+func (p *PixivClient) IllustsRank() ([]string, error) {
 	host := "https://app-api.pixiv.net"
 	url := host + "/v1/illust/ranking"
 	mode := "day_male_r18"
@@ -170,7 +171,8 @@ func (p *PixivClient) Rank() ([]string, error) {
 	return photos, nil
 }
 
-func (p *PixivClient) Recommend() (map[string]interface{}, error) {
+// IllustsRecommend 插画推荐
+func (p *PixivClient) IllustsRecommend() (map[string]interface{}, error) {
 	req := apiHosts + "/v1/illust/recommended"
 	headers, err := p.getHeaders()
 	headers[`include_ranking_label`] = "true"
@@ -201,4 +203,129 @@ func (p *PixivClient) SearchIllust(param SearchParam) (map[string]any, error) {
 		return nil, err
 	}
 	return json, nil
+}
+
+// UserDetail 获取用户详情
+func (p PixivClient) UserDetail() {
+
+}
+
+// UserIllusts 获取用户插画列表
+func (p PixivClient) UserIllusts() {
+
+}
+
+// UserBookmarksIllusts 用户收藏作品列表
+func (p PixivClient) UserBookmarksIllusts() {
+
+}
+
+// FollowIllusts 获取用户关注的插画
+func (p PixivClient) FollowIllusts() {
+
+}
+
+// IllustsDetail 作品详情
+func (p PixivClient) IllustsDetail() {
+
+}
+
+// IllustsComments 获取作品评论
+func (p PixivClient) IllustComments() {
+
+}
+
+// IllustRelated 获取相关作品
+func (p PixivClient) IllustRelated() {
+
+}
+
+// SearchNovel 搜索小说
+func (p PixivClient) SearchNovel() {
+
+}
+
+// SearchUser 搜索用户
+func (p PixivClient) SearchUser() {
+
+}
+
+// IllustsBookmarkDetail 作品收藏详情
+func (p PixivClient) IllustsBookmarkDetail() {
+
+}
+
+// IllustsBookmarkAdd 新增收藏
+func (p PixivClient) IllustsBookmarkAdd() {
+
+}
+
+// UserFollowAdd 关注用户
+func (p PixivClient) UserFollowAdd() {
+
+}
+
+// UserFollowDelete 取消关注用户
+func (p PixivClient) UserFollowDelete() {
+
+}
+
+// UserBookmarkTagsIllusts 用户收藏标签列表
+func (p PixivClient) UserBookmarkTagsIllusts() {
+
+}
+
+// UserFollowing 关注的用户列表
+func (p PixivClient) UserFollowing() {
+
+}
+
+// UserFollower 被关注的用户列表
+func (p PixivClient) UserFollower() {
+
+}
+
+// UserMyPixiv 我的pixiv朋友
+func (p *PixivClient) UserMyPixiv() {
+
+}
+
+// UserBlack 黑名单用户
+func (p *PixivClient) UserBlack() {
+
+}
+
+// UgoiraMetadata 获取ugoira信息
+func (p *PixivClient) UgoiraMetadata() {
+
+}
+
+// UserNovels 用户小说列表
+func (p *PixivClient) UserNovels() {
+
+}
+
+// NovelSeries 小说系列详情
+func (p *PixivClient) NovelSeries() {
+
+}
+
+// NovelDetail 小说详情
+func (p *PixivClient) NovelDetail() {
+
+}
+
+// NovelText 小说文本
+func (p *PixivClient) NovelText() {
+
+}
+
+// IllustsNew 大家的新作
+func (p *PixivClient) IllustsNew() {
+
+}
+
+// ShowcaseArticle 特辑详情
+func (p *PixivClient) ShowcaseArticle() {
+
 }
