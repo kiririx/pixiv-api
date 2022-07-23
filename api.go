@@ -5,14 +5,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/kiririx/krutils/algo_util"
-	"github.com/kiririx/krutils/http_util"
+	"github.com/kiririx/krutils/algox"
+	"github.com/kiririx/krutils/filex"
+	"github.com/kiririx/krutils/httpx"
 	"github.com/kiririx/krutils/logx"
-	"github.com/kiririx/krutils/str_util"
+	"github.com/kiririx/krutils/strx"
 	"io"
 	"os"
-	"path"
-	"regexp"
 	"time"
 )
 
@@ -64,14 +63,14 @@ func (p *PixivClient) getHeaders() (map[string]string, error) {
 }
 
 func (p *PixivClient) DownloadImg(url string) (string, error) {
-	ext, _ := GetFileExt(url)
-	fileName := algo_util.MD5(url) + "." + ext
+	ext, _ := filex.GetUrlFileExt(url, photoExt)
+	fileName := algox.MD5(url) + "." + ext
 	_, err := os.Stat("./photo/" + fileName)
 	if err == nil {
 		return fileName, nil
 	}
 	referer := "https://app-api.pixiv.net/"
-	resp, err := http_util.Client().Timeout(p.APITimeout).Proxy(p.ProxyURL).Headers(map[string]string{
+	resp, err := httpx.Client().Timeout(p.APITimeout).Proxy(p.ProxyURL).Headers(map[string]string{
 		"Referer": referer,
 	}).Get(url, nil)
 	if err != nil {
@@ -88,26 +87,13 @@ func (p *PixivClient) DownloadImg(url string) (string, error) {
 	return fileName, nil
 }
 
-// GetFileExt 获取文件的扩展名
-func GetFileExt(fileAddr string) (string, error) {
-	fileName := path.Base(fileAddr)
-	reg, err := regexp.Compile("\\.(" + "jpg|png|jpeg|JPG|JPEG|PNG" + ")")
-	if err != nil {
-		return "", err
-	}
-	matchedExtArr := reg.FindAllString(fileName, -1)
-	if matchedExtArr != nil && len(matchedExtArr) > 0 {
-		ext := matchedExtArr[len(matchedExtArr)-1]
-		return ext[1:], nil
-	}
-	return "", errors.New("获取文件扩展名失败")
-}
+var photoExt = []string{"jpg", "png", "jpeg", "JPG", "JPEG", "PNG"}
 
 func (p *PixivClient) Auth() error {
 	if p.accessToken != "" && time.Now().Unix() < p.expireTime {
 		return nil
 	}
-	json, err := http_util.Client().
+	json, err := httpx.Client().
 		Timeout(p.APITimeout).
 		Proxy(p.ProxyURL).
 		PostFormGetJSON("https://oauth.secure.pixiv.net/auth/token", map[string]string{
@@ -148,7 +134,7 @@ func (p *PixivClient) IllustsRank() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	json, err := http_util.Client().Timeout(p.APITimeout).Proxy(p.ProxyURL).Headers(headers).GetJSON(url, map[string]string{
+	json, err := httpx.Client().Timeout(p.APITimeout).Proxy(p.ProxyURL).Headers(headers).GetJSON(url, map[string]string{
 		"mode":   mode,
 		"filter": filter,
 	})
@@ -176,7 +162,7 @@ func (p *PixivClient) IllustsRecommend() (map[string]interface{}, error) {
 	req := apiHosts + "/v1/illust/recommended"
 	headers, err := p.getHeaders()
 	headers[`include_ranking_label`] = "true"
-	jsonMap, err := http_util.Client().Timeout(p.APITimeout).Proxy(p.ProxyURL).Headers(headers).GetJSON(req, map[string]string{})
+	jsonMap, err := httpx.Client().Timeout(p.APITimeout).Proxy(p.ProxyURL).Headers(headers).GetJSON(req, map[string]string{})
 	if err != nil {
 		fmt.Println(err.Error())
 		return nil, err
@@ -191,12 +177,12 @@ func (p *PixivClient) SearchIllust(param SearchParam) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	json, err := http_util.Client().Timeout(p.APITimeout).Proxy(p.ProxyURL).Headers(headers).GetJSON(url, map[string]string{
+	json, err := httpx.Client().Timeout(p.APITimeout).Proxy(p.ProxyURL).Headers(headers).GetJSON(url, map[string]string{
 		"word":          param.Word,
 		"search_target": string(param.SearchTarget),
 		"sort":          string(param.Sort),
 		"filter":        "for_ios",
-		"offset":        str_util.ToStr(param.Offset),
+		"offset":        strx.ToStr(param.Offset),
 	})
 	if err != nil {
 		fmt.Println(err.Error())
