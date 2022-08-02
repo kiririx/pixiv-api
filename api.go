@@ -70,7 +70,7 @@ func (p *PixivClient) DownloadImg(url string) (string, error) {
 		return fileName, nil
 	}
 	referer := "https://app-api.pixiv.net/"
-	resp, err := httpx.Client().Timeout(p.APITimeout).Proxy(p.ProxyURL).Headers(map[string]string{
+	resp, err := p.dwClient().Headers(map[string]string{
 		"Referer": referer,
 	}).Get(url, nil)
 	if err != nil {
@@ -134,7 +134,7 @@ func (p *PixivClient) IllustsRank() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	json, err := httpx.Client().Timeout(p.APITimeout).Proxy(p.ProxyURL).Headers(headers).GetJSON(url, map[string]string{
+	json, err := p.apiClient().Headers(headers).GetJSON(url, map[string]string{
 		"mode":   mode,
 		"filter": filter,
 	})
@@ -162,7 +162,7 @@ func (p *PixivClient) IllustsRecommend() (map[string]interface{}, error) {
 	req := apiHosts + "/v1/illust/recommended"
 	headers, err := p.getHeaders()
 	headers[`include_ranking_label`] = "true"
-	jsonMap, err := httpx.Client().Timeout(p.APITimeout).Proxy(p.ProxyURL).Headers(headers).GetJSON(req, map[string]string{})
+	jsonMap, err := p.apiClient().Headers(headers).GetJSON(req, map[string]string{})
 	if err != nil {
 		fmt.Println(err.Error())
 		return nil, err
@@ -177,7 +177,7 @@ func (p *PixivClient) SearchIllust(param SearchParam) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	json, err := httpx.Client().Timeout(p.APITimeout).Proxy(p.ProxyURL).Headers(headers).GetJSON(url, map[string]string{
+	json, err := p.apiClient().Headers(headers).GetJSON(url, map[string]string{
 		"word":          param.Word,
 		"search_target": string(param.SearchTarget),
 		"sort":          string(param.Sort),
@@ -216,7 +216,7 @@ func (p PixivClient) IllustsDetail() {
 
 }
 
-// IllustsComments 获取作品评论
+// IllustComments 获取作品评论
 func (p PixivClient) IllustComments() {
 
 }
