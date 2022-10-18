@@ -148,10 +148,15 @@ func (p *PixivClient) IllustsRank() ([]string, error) {
 		image := illust.(map[string]interface{})["image_urls"].(map[string]interface{})
 		if image["large"] != "" {
 			photos = append(photos, image["large"].(string))
-		} else if image["medium"] != "" {
+			continue
+		}
+		if image["medium"] != "" {
 			photos = append(photos, image["medium"].(string))
-		} else if image["square_medium"] != "" {
+			continue
+		}
+		if image["square_medium"] != "" {
 			photos = append(photos, image["square_medium"].(string))
+			continue
 		}
 	}
 	return photos, nil
