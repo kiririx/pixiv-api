@@ -6,8 +6,6 @@
 ## 参考
 本项目的实现的api参考：https://github.com/upbit/pixivpy
 
-同时很多细节也参考此项目，可以说是golang版的pixivpy
-
 ## 概述
 这是一个pixiv的api，通过go编写。
 
