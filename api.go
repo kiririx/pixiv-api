@@ -1,6 +1,7 @@
 package pixiv_api
 
 import (
+	"bufio"
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
@@ -12,6 +13,8 @@ import (
 	"github.com/kiririx/krutils/strx"
 	"io"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -43,6 +46,36 @@ type PixivClient struct {
 	DownloadTimeout time.Duration
 	APITimeout      time.Duration
 	Login           bool
+}
+
+func GetPixivClient(param PixivClient) *PixivClient {
+	b, err := os.ReadFile("./token.txt")
+	if err != nil {
+		panic("token.txt not in root path or you are not have the permission!")
+	}
+	fileContent := string(b)
+	lines := strings.Split(fileContent, "\n")
+
+	var f = func() (ok bool, token string, expireTime int64) {
+		if len(lines) == 2 {
+			tokenLine := lines[0]
+			expireTimeLine := lines[1]
+			param.expireTime = func() int64 {
+				v, _ := strconv.Atoi(expireTimeLine)
+				return int64(v)
+			}()
+			token = tokenLine
+			ok = true
+			return
+		}
+		return
+	}
+
+	if ok, token, expireTime := f(); ok {
+		param.accessToken = token
+		param.expireTime = expireTime
+	}
+	return &param
 }
 
 func (p *PixivClient) getHeaders() (map[string]string, error) {
@@ -90,7 +123,7 @@ func (p *PixivClient) DownloadImg(url string) (string, error) {
 var photoExt = []string{"jpg", "png", "jpeg", "JPG", "JPEG", "PNG"}
 
 func (p *PixivClient) Auth() error {
-	if p.accessToken != "" && time.Now().Unix() < p.expireTime {
+	if p.accessToken != "" && time.Now().Unix() < p.expireTime && p.expireTime != 0 {
 		return nil
 	}
 	json, err := httpx.Client().
@@ -114,13 +147,36 @@ func (p *PixivClient) Auth() error {
 	}
 	p.accessToken = accessToken
 	p.expireTime = expireTime
+	// write to token.txt
+	f, err := os.OpenFile("./token.txt", os.O_WRONLY|os.O_CREATE, 0666)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	writer := bufio.NewWriter(f)
+	_, err = writer.WriteString(p.accessToken)
+	if err != nil {
+		return err
+	}
+	_, err = writer.WriteString("\n")
+	if err != nil {
+		return err
+	}
+	_, err = writer.WriteString(strx.ToStr(p.expireTime))
+	if err != nil {
+		return err
+	}
+	err = writer.Flush()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 func genClientHash(clientTime string) string {
 	h := md5.New()
-	io.WriteString(h, clientTime)
-	io.WriteString(h, hashSecret)
+	_, _ = io.WriteString(h, clientTime)
+	_, _ = io.WriteString(h, hashSecret)
 	return hex.EncodeToString(h.Sum(nil))
 }
 
@@ -197,82 +253,82 @@ func (p *PixivClient) SearchIllust(param SearchParam) (map[string]any, error) {
 }
 
 // UserDetail 获取用户详情
-func (p PixivClient) UserDetail() {
+func (p *PixivClient) UserDetail() {
 
 }
 
 // UserIllusts 获取用户插画列表
-func (p PixivClient) UserIllusts() {
+func (p *PixivClient) UserIllusts() {
 
 }
 
 // UserBookmarksIllusts 用户收藏作品列表
-func (p PixivClient) UserBookmarksIllusts() {
+func (p *PixivClient) UserBookmarksIllusts() {
 
 }
 
 // FollowIllusts 获取用户关注的插画
-func (p PixivClient) FollowIllusts() {
+func (p *PixivClient) FollowIllusts() {
 
 }
 
 // IllustsDetail 作品详情
-func (p PixivClient) IllustsDetail() {
+func (p *PixivClient) IllustsDetail() {
 
 }
 
 // IllustComments 获取作品评论
-func (p PixivClient) IllustComments() {
+func (p *PixivClient) IllustComments() {
 
 }
 
 // IllustRelated 获取相关作品
-func (p PixivClient) IllustRelated() {
+func (p *PixivClient) IllustRelated() {
 
 }
 
 // SearchNovel 搜索小说
-func (p PixivClient) SearchNovel() {
+func (p *PixivClient) SearchNovel() {
 
 }
 
 // SearchUser 搜索用户
-func (p PixivClient) SearchUser() {
+func (p *PixivClient) SearchUser() {
 
 }
 
 // IllustsBookmarkDetail 作品收藏详情
-func (p PixivClient) IllustsBookmarkDetail() {
+func (p *PixivClient) IllustsBookmarkDetail() {
 
 }
 
 // IllustsBookmarkAdd 新增收藏
-func (p PixivClient) IllustsBookmarkAdd() {
+func (p *PixivClient) IllustsBookmarkAdd() {
 
 }
 
 // UserFollowAdd 关注用户
-func (p PixivClient) UserFollowAdd() {
+func (p *PixivClient) UserFollowAdd() {
 
 }
 
 // UserFollowDelete 取消关注用户
-func (p PixivClient) UserFollowDelete() {
+func (p *PixivClient) UserFollowDelete() {
 
 }
 
 // UserBookmarkTagsIllusts 用户收藏标签列表
-func (p PixivClient) UserBookmarkTagsIllusts() {
+func (p *PixivClient) UserBookmarkTagsIllusts() {
 
 }
 
 // UserFollowing 关注的用户列表
-func (p PixivClient) UserFollowing() {
+func (p *PixivClient) UserFollowing() {
 
 }
 
 // UserFollower 被关注的用户列表
-func (p PixivClient) UserFollower() {
+func (p *PixivClient) UserFollower() {
 
 }
 
